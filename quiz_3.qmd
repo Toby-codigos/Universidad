@@ -1,0 +1,353 @@
+---
+title: "Quiz 3"
+author: "Tomás Valderrama Molano"
+format: docx
+editor: visual
+---
+
+# 1. Método Monte Carlo para evaluar integrales definidas
+
+Sea la integral:
+
+$$
+\int_0^1 [cos(50x) + sen(20x)]^2dx
+$$
+
+## Solución analítica
+
+$$
+I = \int_0^1 [cos^2(50x) +2cos(50x)sen(20x) + sen^2(20x)]dx
+$$
+
+Separamos la integral por términos:
+
+$$
+I = \int_0^1cos^2(50x)dx + \int_0^1 2cos(50x)sen(20x)dx + \int_0^1sen^2(20x)dx   
+$$
+
+Utilizamos las siguientes propiedades:
+
+$$
+cos^2(x) = \frac{1 + cos(2x)}{2}, 2cosAsenB =sen(A+B) - sen(A -B), sen^2(x) = \frac{1-cos(2x)}{2}
+$$
+
+Uilizando sustitución y aplicando propiedades, tenemos que:
+
+$$
+I = \frac{1}{50}\int_0^1 \frac{1+cos(2u)}{2} du +  \int_0^1 [sen(70x) - sen(30x)] dx + \frac{1}{20}\int_0^1\frac{1-cos(2u)}{2}du 
+$$
+
+$$
+I|_0^1 = \frac{1}{50}[25x +\frac{sen(100x)}{4}] - \frac{1}{70}cos(70x) + \frac{1}{30}cos(30x) + \frac{1}{20} [10x - \frac{sen(40x)}{4} ]
+$$
+
+$$
+I = 1 + \frac{sen(100)}{200} - \frac{1}{70}cos(70) + \frac{1}{30}cos(30) - \frac{sen(40)}{80} - [-\frac{1}{70} + \frac{1}{30}]
+$$
+
+$$
+I = \frac{103}{105} +\frac{sen(100)}{200} -\frac{sen(40)}{80} + \frac{cos(30)}{30}  - \frac{cos(70)}{70}
+$$
+
+```{r}
+I <- 103/105 + sin(100)/200 - sin(40)/80 + cos(30)/30 - cos(70)/70 ; I
+```
+
+## Solución por método Monte Carlo
+
+Se comprende el método Monte-Carlo para estimar integrales definidas de la siguiente manera:
+
+Sea una integral definida
+
+$$ \int_a^b f(y)dy $$
+
+Sea X una variable aleatoria con distribución uniforme sobre $[a,b]$, entonces su función de densidad es:
+
+$$ h(x) = \frac{1}{b-a} $$
+
+Si se concidera $f(x)$ como una v.a. entonces podemos calcular el valor esperado, de la siguiente forma:
+
+$$ E[h(x)] = \int_a^b f(x)h(x)dx = \int_a^b \frac{f(x)}{b-a}dx $$
+
+Por lo tanto, se tiene lo siguiente:
+
+$$ \int_a^b f(x)dx = \frac{b-a}{m} \sum_{i =1}^{m} f(x_i) $$
+
+Así, calculamos el área de la integral:
+
+```{r}
+set.seed(12345)
+m <- 10000 # Número de ensayos
+x <- runif(m) # Creamos n datos aleatorios uniformes(0,1)
+f <- function (x) {(cos(50 * x) + sin(20 * x))^2} #Función f(x) a integrar
+estimacionp <- mean(f(x)) ; estimacionp # Estimación monte carlo
+```
+
+Gráfica de la evolución de las estimaciones junto al error estandar de cada una:
+
+```{r}
+# Calculamos las estimaciones acumulativas
+estimaciones <- cumsum(f(x)) / (1:m) 
+
+# Calculamos el error estándar asociado
+sd <- sqrt(cumsum((f(x) - estimaciones)^2)) / (1:m)
+
+# Código para generar el gráfico:
+plot(1:m, estimaciones,
+     type = "l",
+     col = "blue",
+     lwd = 2,
+     xlab = "Número de ensayos",
+     ylab = "Estimación del área de la Integral",
+     main = "Evolución de la estimación del área")
+# Se agregan las lineas de los errores
+lines(1:m, estimaciones + sd,
+      col = "lightblue",
+      lty = 1) 
+lines(1:m, estimaciones - sd,
+      col = "lightblue",
+      lty = 1)
+# Agregamos el valor real
+abline(h = I,
+       col = "red",
+       lty = 2,
+       lwd = 2)
+# Leyenda con cada linea
+legend("bottomright", legend = c("Estimación", "Error estándar", "Valor real"),
+       col = c("blue", "lightblue", "red"), lty = c(1, 2, 3), lwd = 2) # agregamos
+```
+
+# 2. Intervalo de confianza
+
+Se busca utilizar el método Monte Carlo para estimar el nivel de confianza de la construcción de un intervalo de confianza para la varianza. Se concidera que los datos siguen una distribución normal para n\>2, por lo que el intervalo de confianza a un nivel $\alpha = 0.05$ está dado por:
+
+$$
+(0, \frac{(n-1) S^2}{\chi^2_\alpha} )
+$$
+
+Donde:
+
+-   $\chi^2_\alpha$ Es el $\alpha$-cuantil de la distribución $\chi^2(n-1)$
+
+-   $S^2$ Es la varianza muestral
+
+-   $n$ Es el tamaño de la muestra
+
+Se tomará como referencia una muestra aleatoria de tamaño $n=20$ de una distribución normal $N(0,4)$. Se realizarán 1000 réplicas del experimento.
+
+El objetivo final es establecer la proporción de veces en que la varianza está contenida dentro de los intervalos construidos.
+
+```{r}
+set.seed(12345)
+
+# Función del límite superior del intervalo de confianza
+ls <- function(x){((length(x) - 1))*var(x)/qchisq(p = 0.05, df = length(x) - 1)}
+
+# Generamos una matriz de 1000 filas y 20 columnas con muestras aleatorias de una N(0, 4)
+mx <- matrix(rnorm(n = 1000 * 20, mean = 0, sd = 2), nrow = 1000, ncol = 20)
+
+# Para cada réplica calculamos el límite superior del intervalo
+lss <- apply(mx, 1, ls)
+
+# Contar cuántos contienen la varianza
+verdaderos <- sum(lss >= 4)
+# Calculamos la proporción
+prop <- verdaderos/1000 ; prop
+
+```
+
+Así, se concluye que la proporción de los intervalos que contienen la varianza es del 95%
+
+# 3. Intervalo de confianza con chi cuadrado
+
+```{r}
+set.seed(12345)
+
+# Función del intervalo de confianza
+ls <- function(x){((length(x) - 1))*var(x)/qchisq(p = 0.05, df = length(x) - 1)}
+
+# Genera una matriz de 1000 filas y 20 columnas con muestras de una chi cuadrado con 2 grados de libertad
+mx <- matrix(rchisq(n = 1000 * 20, df = 2), nrow = 1000, ncol = 20)
+
+
+# Para cada réplica calculamos el límite superior del intervalo
+lss <- apply(mx, 1, ls)
+
+# Contar cuántos contienen la varianza
+verdaderos <- sum(lss >= 4)
+# Calculamos la proporción
+prop <- verdaderos/1000 ; prop
+
+```
+
+La reducción en el nivel de confianza observado se debe a que la población muestreada ya no es normal, sino una distribución $\chi^2(2)$ lo que afecta la precisión del intervalo de confianza, ya que este fue derivado bajo el supuesto de normalidad. Al cambiar a una población $\chi^2(2)$, el intervalo de confianza deja de ser óptimo, resultando en un menor nivel de cobertura (77.3% en este caso) en lugar del 95% esperado.
+
+# 4. Muestreador de Gibbs
+
+## ¿En qué consiste?
+
+Es un algoritmo para generar números aleatorios de funciones de densidad multivariadas. Este método es necesario puesto que la mayoría de distribuciones de probabilidad conjunta son complicadas o directamente imposibles de muestrar, por ejemplo:
+
+$$
+\text{Función de Densidad Conjunta: } f_{X,Y}(x,y) = f_X(x) \cdot f_Y(y)
+$$
+
+$$
+f_{X,Y}(x,y) = \left( \frac{1}{\sqrt{2\pi\sigma^2}} \exp\left( -\frac{(x - \mu)^2}{2\sigma^2} \right) \right) \cdot \left( \frac{1}{\theta^k \Gamma(k)} y^{k-1} e^{-y/\theta} \right)
+$$
+
+Intentar extraer muestras aleatorias que sigan esta distribución es realmente complicado, por lo tanto un método como el de gibbs se hace realmente útil.
+
+El método consiste en elegir valores iniciales de cada una de las variables, para posterioremente realizar iteraciones en las que se actualiza el valor de cada variable condicionalmente, **mediante las distribuciones condicionales de cada variable dada las demás.** Este proceso se realiza hasta convergencia de los datos.
+
+Si yo conozco la función condicional (g_i) de cada una de las variables:
+
+$$
+x|y \sim g_1 
+$$
+
+$$
+y|x \sim g_2
+$$
+
+En este caso particular:
+
+$$
+y|x \sim \Gamma (a,b)
+$$
+
+$$
+x|y \sim N(\mu, \sigma^2)
+$$
+
+De estas distribuciones sí podemos extraer muestras aleatorias.
+
+## ¿Cuál es el algoritmo general?
+
+El algoritmo general es el siguiente:
+
+Dado un estado actual de los parámetros del modelo $\theta^{(b)} = (\theta^{(b)}_1, \ldots, \theta^{(b)}_k)$, se genera un nuevo estado $\theta^{b+1}$ como sigue:
+
+1.  Muestrear $\theta^{(b+1)}_1 \sim p(\theta_1 \mid \theta^{(b)}_2, \theta^{(b)}_3, \ldots, \theta^{(b)}_k)$
+2.  Muestrear $\theta^{(b+1)}_2 \sim p(\theta_2 \mid \theta^{(b+1)}_1, \theta^{(b)}_3, \ldots, \theta^{(b)}_k)$
+3.  Muestrear $\theta^{(b+1)}_3 \sim p(\theta_3 \mid \theta^{(b+1)}_1, \theta^{(b+1)}_2, \ldots, \theta^{(b)}_k)$
+4.  ...
+5.  Muestrear $\theta^{(b+1)}_k \sim p(\theta_k \mid \theta^{(b+1)}_1, \theta^{(b+1)}_2, \ldots, \theta^{(b+1)}_{k-1})$
+6.  Establecer $\theta^{(b+1)} = (\theta^{(b+1)}_1, \ldots, \theta^{(b+1)}_k)$
+7.  Repetir los pasos 1 a 6 hasta convergencia.
+
+## Ejemplo de aplicación
+
+Supongamos que estamos interesados en estudiar la relación entre la presión arterial (X) y los niveles de colesterol (Y) en una muestra de pacientes. Queremos modelar la distribución conjunta de estos dos parámetros utilizando un enfoque bayesiano. Asumimos que, dado el nivel de colesterol, la presión arterial sigue una distribución normal, y viceversa.
+
+### Supuestos:
+
+-   La presión arterial X dado el colesterol Y sigue una distribución normal con media que depende del colesterol.
+
+-   El colesterol Y dado la presión arterial X también sigue una distribución normal con media que depende de la presión arterial.
+
+### Parámetros:
+
+-   μX=120 media de la presión arterial)
+
+-   μY=200 (media del colesterol)
+
+-   σX=15 (desviación estándar de la presión arterial)
+
+-   σY=30 (desviación estándar del colesterol)
+
+-   ρ=0.4 (correlación entre la presión arterial y el colesterol)
+
+```{r}
+# Parámetros
+mu_X <- 120  # Media de la presión arterial
+mu_Y <- 200  # Media del colesterol
+sigma_X <- 15 # Desviación estándar de la presión arterial
+sigma_Y <- 30 # Desviación estándar del colesterol
+rho <- 0.4    # Correlación
+
+# Inicialización
+n_iter <- 1000  # Número de iteraciones
+X <- numeric(n_iter)  # Almacena las muestras de la presión arterial
+Y <- numeric(n_iter)  # Almacena las muestras de colesterol
+
+# Valores iniciales
+X[1] <- mu_X  # Inicializar en la media
+Y[1] <- mu_Y  # Inicializar en la media
+
+# Muestreador de Gibbs
+for (i in 2:n_iter) {
+  # Muestrear X dado Y
+  Y[i - 1] <- Y[i - 1]  # Mantener el valor actual de Y
+  X[i] <- rnorm(1, 
+                mean = mu_X + rho * (sigma_X / sigma_Y) * (Y[i - 1] - mu_Y),
+                sd = sigma_X * sqrt(1 - rho^2))
+  
+  # Muestrear Y dado X
+  X[i] <- X[i]  # Mantener el valor actual de X
+  Y[i] <- rnorm(1, 
+                mean = mu_Y + rho * (sigma_Y / sigma_X) * (X[i] - mu_X),
+                sd = sigma_Y * sqrt(1 - rho^2))
+}
+head(data.frame(X,Y))
+# Resultados  
+par(mfrow=c(1, 2))
+plot(X, Y, main="Muestreador de Gibbs: Presión Arterial vs Colesterol", 
+     xlab="Presión Arterial (mmHg)", ylab="Colesterol (mg/dL)", col=rgb(0, 0, 1, 0.5))
+abline(lm(Y ~ X), col="red")  # Añadir línea de regresión
+hist(X, main="Histograma de Presión Arterial", xlab="Presión Arterial (mmHg)", breaks=30)
+
+```
+
+# 5. Distribución normal bivariada
+
+Si tenemos una función de distribución normal bivariada:
+
+$$
+f(x, y) = \frac{1}{2 \pi \sigma_X \sigma_Y \sqrt{1 - \rho^2}} \exp \left( -\frac{1}{2(1 - \rho^2)} \left( \frac{(x - \mu_X)^2}{\sigma_X^2} + \frac{(y - \mu_Y)^2}{\sigma_Y^2} - \frac{2 \rho (x - \mu_X)(y - \mu_Y)}{\sigma_X \sigma_Y} \right) \right)
+$$
+
+Podemos conocer que X\|Y
+
+$$
+X | Y = y \sim \mathcal{N} \left( \mu_X + \rho \frac{\sigma_X}{\sigma_Y} (y - \mu_Y), \, \sigma_X^2 (1 - \rho^2) \right)
+$$
+
+```{r}
+
+muestreo_gibbs <- function(n, mu1, mu2, sigma1, sigma2, rho){
+  # Condicionales en la distribución normal bivariada
+  sigma12 <- rho * sigma1 * sigma2
+  # Número de iteraciones del muestreador de Gibbs
+  n_iter <- n
+  x1 <- numeric(n_iter)
+  x2 <- numeric(n_iter)
+  # Valores iniciales para X1 y X2
+  x1[1] <- rnorm(1, mean = mu1, sd = sigma1)
+  x2[1] <- rnorm(1, mean = mu2, sd = sigma2)
+  # Muestreador de Gibbs
+  for (i in 2:n_iter) {
+    # Condicional de X1 dado X2
+    mean_x1_given_x2 <- mu1 + rho * (sigma1 / sigma2) * (x2[i - 1] - mu2)
+    sd_x1_given_x2 <- sqrt((1 - rho^2) * sigma1^2)
+    x1[i] <- rnorm(1, mean = mean_x1_given_x2, sd = sd_x1_given_x2)
+  
+    # Condicional de X2 dado X1
+    mean_x2_given_x1 <- mu2 + rho * (sigma2 / sigma1) * (x1[i] - mu1)
+    sd_x2_given_x1 <- sqrt((1 - rho^2) * sigma2^2)
+    x2[i] <- rnorm(1, mean = mean_x2_given_x1, sd = sd_x2_given_x1)
+  }
+# Combina las muestras en un data frame
+  samples <- data.frame(X1 = x1, X2 = x2)
+  return(samples)
+}
+# Parámetros de la distribución
+mu1 <- 0
+mu2 <- 0
+sigma1 <- 1
+sigma2 <- 1
+rho <- 0.8
+n <- 1000
+ej <- muestreo_gibbs(n, mu1, mu2, sigma1, sigma2, rho)
+plot(ej, main = "Muestreo de gibbs normal bivariada")
+```
